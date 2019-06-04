@@ -28,7 +28,7 @@
 % Copyright 2016 The MathWorks, Inc. 
 
 function [orientation, location, inlierIdx] = ...
-    helperEstimateRelativePose(matchedPoints1, matchedPoints2, cameraParams)
+    Devel_helperEstimateRelativePose(matchedPoints1, matchedPoints2, cameraParams)
 
 if ~isnumeric(matchedPoints1)
     matchedPoints1 = matchedPoints1.Location;
@@ -39,10 +39,11 @@ if ~isnumeric(matchedPoints2)
 end
 
 for i = 1:100
-    % Estimate the essential matrix.    
-    [E, inlierIdx] = estimateEssentialMatrix(matchedPoints1, matchedPoints2,...
-        cameraParams);
-
+    % Estimate the essential matrix.   
+    matchedPoints1
+    matchedPoints2
+    [E, inlierIdx] = estimateFundamentalMatrix(matchedPoints1, matchedPoints2);
+    E
     % Make sure we get enough inliers
     if sum(inlierIdx) / numel(inlierIdx) < .3
         continue;
@@ -52,11 +53,12 @@ for i = 1:100
     inlierPoints1 = matchedPoints1(inlierIdx, :);
     inlierPoints2 = matchedPoints2(inlierIdx, :);    
     
-    % Compute the camera pose from the fundamental matrix. Use half of the
+    % Compute the camera pose from the fundamental matrix. Use ALL (/half
+    % of the)
     % points to reduce computation.
     [orientation, location, validPointFraction] = ...
-        relativeCameraPose(E, cameraParams, inlierPoints1(1:2:end, :),...
-        inlierPoints2(1:2:end, :));
+        relativeCameraPose(E, cameraParams, inlierPoints1(1:1:end, :),...
+        inlierPoints2(1:1:end, :));
 
     % validPointFraction is the fraction of inlier points that project in
     % front of both cameras. If the this fraction is too small, then the
