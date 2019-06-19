@@ -1,0 +1,12 @@
+Naam formaat:
+	*Naam keizer*_*Type model*_*Als het een reconstructie is: welke foto's zijn er gebruikt.
+
+Model types:
+	HDscan met een dure 3D scanner
+	Reconstructie van foto's
+
+Mogelijke foto's:
+	Alleen flash
+	Alleen zonder flash
+	Alle foto's
+	Bij gebruik van een lage hoeveelheid foto's ook de hoeveelheid vermelden.
