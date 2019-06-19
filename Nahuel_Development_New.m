@@ -1,6 +1,6 @@
 %% Import images
 clear all;
-imageDir = fullfile('RomanEmperors', 'Jonge Commodus', 'Photos');
+imageDir = fullfile('RomanEmperors', 'Brutus', 'Photos');
 imds = imageDatastore(imageDir);
 
 %% Display the images.
@@ -52,7 +52,7 @@ vSet = addView(vSet, viewId, 'Points', prevPoints, 'Orientation', ...
 
 %% Add the other cameras
 prevI = images{1};
-for i = 2%:numel(images)
+for i = 2:3%numel(images)
     % Undistort the current image.
     %I = undistortImage(images{i}, cameraParams);
     I = images{i};
@@ -71,7 +71,7 @@ for i = 2%:numel(images)
     matchedPoints1 = prevPoints(indexPairs(:, 1));
     matchedPoints2 = currPoints(indexPairs(:, 2));
     [~, inlierPoints1, inlierPoints2] = estimateGeometricTransform(matchedPoints1, matchedPoints2, ...
-        'projective', 'MaxDistance', 100)
+        'projective', 'MaxDistance', 500)
     figure; showMatchedFeatures(prevI,I,matchedPoints1,matchedPoints2,'montage');
     legend('matched points 1','matched points 2');
     figure; showMatchedFeatures(prevI,I,inlierPoints1,inlierPoints2,'montage');
@@ -129,3 +129,85 @@ end
 camPoses = poses(vSet);
 figure;
 plotCamera(camPoses, 'Size', 0.2);
+hold on;
+pcshow(xyzPoints, 'VerticalAxis', 'y', 'VerticalAxisDir', 'down', ...
+    'MarkerSize', 45);
+
+%% Dense reconstruction
+
+% Read and undistort the first image
+% I = undistortImage(images{1}, cameraParams); 
+
+% Detect corners in the first image.
+prevPoints = detectMinEigenFeatures(I, 'MinQuality', 0.001);
+
+% Create the point tracker object to track the points across views.
+tracker = vision.PointTracker('MaxBidirectionalError', 1, 'NumPyramidLevels', 6);
+
+% Initialize the point tracker.
+prevPoints = prevPoints.Location;
+initialize(tracker, prevPoints, I);
+
+% Store the dense points in the view set.
+vSet = updateConnection(vSet, 1, 2, 'Matches', zeros(0, 2));
+vSet = updateView(vSet, 1, 'Points', prevPoints);
+
+% Track the points across all views.
+for i = 2:numel(images)
+    i
+    % Read and undistort the current image.
+%    I = undistortImage(images{i}, cameraParams); 
+    
+    % Track the points.
+    [currPoints, validIdx] = step(tracker, I);
+    
+    % Clear the old matches between the points.
+    if i < numel(images)
+        vSet = updateConnection(vSet, i, i+1, 'Matches', zeros(0, 2));
+    end
+    vSet = updateView(vSet, i, 'Points', currPoints);
+    
+    % Store the point matches in the view set.
+    matches = repmat((1:size(prevPoints, 1))', [1, 2]);
+    matches = matches(validIdx, :);        
+    vSet = updateConnection(vSet, i-1, i, 'Matches', matches);
+end
+
+% Find point tracks across all views.
+tracks = findTracks(vSet);
+
+% Find point tracks across all views.
+camPoses = poses(vSet);
+
+% Triangulate initial locations for the 3-D world points.
+xyzPoints = triangulateMultiview(tracks, camPoses,...
+    cameraParams);
+
+% Refine the 3-D world points and camera poses.
+[xyzPoints, camPoses, reprojectionErrors] = bundleAdjustment(...
+    xyzPoints, tracks, camPoses, cameraParams, 'FixedViewId', 1, ...
+    'PointsUndistorted', true);
+
+%% Plot Dense reconstruction
+% Display the refined camera poses.
+figure;
+plotCamera(camPoses, 'Size', 0.2);
+hold on
+
+% Exclude noisy 3-D world points.
+goodIdx = (reprojectionErrors < 5);
+
+% Display the dense 3-D world points.
+pcshow(xyzPoints(goodIdx, :), 'VerticalAxis', 'y', 'VerticalAxisDir', 'down', ...
+    'MarkerSize', 45);
+grid on
+hold off
+
+% Specify the viewing volume.
+loc1 = camPoses.Location{1};
+xlim([loc1(1)-5, loc1(1)+4]);
+ylim([loc1(2)-5, loc1(2)+4]);
+zlim([loc1(3)-1, loc1(3)+20]);
+camorbit(0, -30);
+
+title('Dense Reconstruction');

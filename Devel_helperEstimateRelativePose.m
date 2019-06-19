@@ -40,10 +40,7 @@ end
 
 for i = 1:100
     % Estimate the essential matrix.   
-    matchedPoints1
-    matchedPoints2
     [E, inlierIdx] = estimateFundamentalMatrix(matchedPoints1, matchedPoints2);
-    E
     % Make sure we get enough inliers
     if sum(inlierIdx) / numel(inlierIdx) < .3
         continue;
